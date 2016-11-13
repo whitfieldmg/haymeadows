@@ -1,4 +1,8 @@
-# Haymeadows project
+## Haymeadows analysis
+
+# This R script performs data processing and analysis on historical hay meadow survey data
+# collected for Cumbria Wildlife Trust. The results can be found in the report 'Meadow Life:
+# an analysis of meadow survey data 1987 - 2015'.
 
 # Required packages
 library(magrittr)
