@@ -4,8 +4,9 @@
 # collected for Cumbria Wildlife Trust. The results can be found in the report 'Meadow Life:
 # an analysis of meadow survey data 1987 - 2015'.
 
-# Check if required packages are installed and install if necessary
-# Uses function by Steven Worthington on github
+# Load required packages
+# ipak function checks if packages are installed, installs if necessary
+# ipak function by Steven Worthington on github
 # https://gist.github.com/stevenworthington/3178163
 
 ipak <- function(pkg) {
@@ -19,32 +20,24 @@ packages <- c("magrittr", "dplyr", "tidyr", "ggplot2", "lubridate", "vegan", "st
               "RColorBrewer", "ggmap", "rgdal", "nlme")
 ipak(packages)
 
-# Required packages
-library(magrittr)
-library(dplyr)
-library(tidyr)
-library(ggplot2)
-library(lubridate)
-library(vegan)
-library(stringr)
-library(RColorBrewer)
-library(ggmap)
-library(rgdal)
-library(nlme)
-
 # Set path to data
+# Note that this path will depend on where you store data files
 fpath <- "Dropbox/Cumbria Wildlife Trust/Haymeadows/"
 
 # Historical data
 # Load historical data
 
-# Dates: Some are dummy dates (generally first of July) so that dates can be used as Date class
-#        There is only one survey per field per year, so this doesn't matter.
+# Dates: Where survey dates were not available, dummy dates (first of July)
+# were used so that dates can be used as Date class. This makes downstream
+# analysis and plotting possible.
 
-# Tidy data
-# Change class of date column to Date
-# Add species richness
+# Tidy data operations
+# Change class of date variable to Date
+# Add Year variable
 # Drop surveyors' names column
+# Rename some variables for ease of use
+# Group by site
+# Create nyear variable - number of years of data for each site
 
 histdat <- 
   tbl_df(read.csv(paste0(fpath, "hist-data-trans-clean.csv"))) %>%
@@ -58,7 +51,14 @@ histdat <-
   group_by(Site) %>%
   mutate(nyear = n())
 
-glimpse(histdat)
+# Load 'contemporary' data - 2013-15
+
+# Tidy data operations
+# Change class of date variable to Date
+# Add Year variable
+# Repeat above for restoration date and year
+# Group by site
+# Create nyear variable - number of years of data for each site
 
 contdat <-
   tbl_df(read.csv(paste0(fpath, "data-matrix-13-15-freq.csv"))) %>%
@@ -69,8 +69,6 @@ contdat <-
   rename(Site = siteref) %>%
   group_by(Site) %>%
   mutate(nyear = n())
-
-glimpse(contdat)
 
 # For each dataset, gather species names into species column
 
@@ -84,18 +82,24 @@ contdat.stk <-
 histdat.stk$species <- str_replace_all(histdat.stk$species, "[.]", " ")
 contdat.stk$species <- str_replace_all(contdat.stk$species, "[.]", " ")
 
-# Read contemporary survey lookup table
+# Read 'contemporary' survey species lookup table with functional
+# type classifications
+
 contspp <-
   tbl_df(read.csv(paste0(fpath, "cont-spp-list.csv"))) %>%
   rename(species = contspp)
 
-target_pos <- contspp %>%
-  filter(target == "positive") %>%
-  select(species) %>%
-  unlist %>%
-  str_replace_all(" ", ".") %>%
-  str_replace_all("-", ".")
+# Create variable containing positive indicator species
 
+target_pos <-
+  contspp %>%
+    filter(target == "positive") %>%
+    select(species) %>%
+    unlist %>%
+    str_replace_all(" ", ".") %>%
+    str_replace_all("-", ".")
+
+# Create variable containing negative indicator species
 
 target_neg <- contspp %>%
   filter(target == "negative") %>%
@@ -104,18 +108,11 @@ target_neg <- contspp %>%
   str_replace_all(" ", ".") %>%
   str_replace_all("-", ".")
 
+# Left join contemporary survey data to species lookup table
+# to assign functional type classifications
 
 contdat2 <-
   left_join(contdat.stk, contspp, by = "species")
-
-# Group by year and calculate mean freq by species type
-contdat2 %>%
-  group_by(Year, target) %>%
-  summarise(target.mean = mean(freq, na.rm = TRUE))
-
-contdat2 %>%
-  group_by(Year, type) %>%
-  summarise(type.mean = mean(freq, na.rm = TRUE))
 
 # Group by site, year and type, calculate mean freq
 contdat2 %>%
