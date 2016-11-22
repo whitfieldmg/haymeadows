@@ -1,8 +1,23 @@
-## Haymeadows analysis
+## Meadowlife historical survey data analysis
 
 # This R script performs data processing and analysis on historical hay meadow survey data
 # collected for Cumbria Wildlife Trust. The results can be found in the report 'Meadow Life:
 # an analysis of meadow survey data 1987 - 2015'.
+
+# Check if required packages are installed and install if necessary
+# Uses function by Steven Worthington on github
+# https://gist.github.com/stevenworthington/3178163
+
+ipak <- function(pkg) {
+  new.pkg <- pkg[!(pkg %in% installed.packages()[, "Package"])]
+  if (length(new.pkg)) 
+    install.packages(new.pkg, dependencies = TRUE)
+  sapply(pkg, require, character.only = TRUE)
+}
+
+packages <- c("magrittr", "dplyr", "tidyr", "ggplot2", "lubridate", "vegan", "stringr",
+              "RColorBrewer", "ggmap", "rgdal", "nlme")
+ipak(packages)
 
 # Required packages
 library(magrittr)
