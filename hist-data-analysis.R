@@ -211,22 +211,7 @@ matbind$rich.grass <- rowSums(grassmat > 0, na.rm = TRUE)
 matbind$rich.forb  <- rowSums(forbmat > 0, na.rm = TRUE)
 matbind$rich.leg   <- rowSums(legmat > 0, na.rm = TRUE)
 
-# Plot overall species richness against pos and neg
-matbind %>%
-  ggplot(aes(rich.all, rich.pos)) +
-  geom_smooth() +
-  geom_point() +
-  labs(x = "Overall species richness", y = "Positive indicator richness") +
-  theme_minimal()
-
-matbind %>%
-  ggplot(aes(rich.all, rich.neg)) +
-  geom_smooth() +
-  geom_point() +
-  labs(x = "Overall species richness", y = "Negative indicator richness") +
-  theme_minimal()
-
-# Plot species richness by change over time by site
+# Plot species richness (all species) by change over time by site
 matbind %>%
   filter(nyear > 1) %>%
   mutate(Date = as.Date(Date)) %>%
@@ -239,9 +224,13 @@ matbind %>%
   theme_minimal() +
   theme(plot.title = element_text(hjust = 0),
         strip.text = element_text(hjust = 0))
-  
+
+# Save plot at A4 size
 ggsave(paste0(fpath, "all-species-richness.png"), height = 210, width = 297, units = "mm")
 
+# Plot change in species richness over time, by site, with species split
+# into functional groups. Each functional group is represented by a different
+# colour
 matbind %>%
   filter(nyear > 1) %>%
   mutate(Date = as.Date(Date)) %>%
@@ -257,9 +246,13 @@ matbind %>%
   theme(plot.title = element_text(hjust = 0),
         strip.text = element_text(hjust = 0))
 
+# Save plot at A4 size
 ggsave(paste0(fpath, "functional-group-richness.png"), height = 210, width = 297, units = "mm")
 
 # Summarise to % change in richness by site
+# This code is unwieldy - there is probably a better way to do this!
+# The pdiff. variables added to matbind contain the relative percentage change in
+# species richness for the specified functional groups
 
 matbind <-
   matbind %>%
