@@ -114,37 +114,30 @@ target_neg <- contspp %>%
 contdat2 <-
   left_join(contdat.stk, contspp, by = "species")
 
-# Group by site, year and type, calculate mean freq
-contdat2 %>%
-  filter(nyear > 1) %>%
-  group_by(Site, Year, type) %>%
-  summarise(site.mean = mean(freq, na.rm = TRUE),
-            restyear = unique(restyear)) %>%
-  ggplot(aes(Year, site.mean, colour = type)) +
-  geom_vline(aes(xintercept = restyear)) +
-  geom_line() +
-  geom_point() +
-  facet_wrap(~ Site)
-
-# Read historical species table
+# Read historical species lookup table
 histspp <-
   tbl_df(read.csv(paste0(fpath, "hist-spp-list.csv")))
+
+# Left join historical survey data to species lookup table
+# to assign functional type classifications
 
 histdat2 <-
   left_join(histdat.stk, histspp, by = "species")
 
-# Bind historical and contemporary data together
+# Bind historical and contemporary data together into one dataset
 datbind <- bind_rows(histdat2, contdat2)
 
+# Ensure that year is coded as an integer, not a character
 datbind$Year <- as.integer(datbind$Year)
 
+# Extract NGR 10km square from site name
 datbind$Region <- str_sub(datbind$Site, 1, 4)
 
-# datbind$coord <- str_sub(datbind$NGR, start = 3)
-# datbind$coord_x <- sapply(str_split(datbind$coord, " "), "[", 1)
-# datbind$coord_y <- sapply(str_split(datbind$coord, " "), "[", 2)
+# Using sites for which there is more than one year of data,
+# Group by site, year and type, calculate mean frequency
+# Plot using lines to show trajectories and points to show means
+# Vertical lines on plots indicate restoration dates (there aren't many of these)
 
-# Group by site, year and type, calculate mean freq
 datbind %>%
   filter(nyear > 1) %>%
   group_by(Site, Year, type) %>%
@@ -154,27 +147,29 @@ datbind %>%
             restdate = unique(restdate)) %>%
   mutate(Date = as.Date(Date),
          restdate = as.Date(restdate)) %>%
-  filter(!is.na(type)) %>% # need to investigate why NAs in type
+  filter(!is.na(type)) %>% 
   ggplot(aes(Date, site.mean, colour = type)) +
   geom_vline(aes(xintercept = as.numeric(restdate))) +
   geom_line() +
   geom_point() +
   facet_wrap(~ Site, scales = "free_x") +
   scale_x_date(date_labels = "%y") +
-  labs(title = "Frequency of functional groups", subtitle = "Data points are means",
+  labs(title = "Frequency of functional groups",
+       subtitle = "Data points are means",
        x = "Year", y = "Mean frequency", colour = "Group") +
   theme_minimal() +
   theme(plot.title = element_text(hjust = 0),
         strip.text = element_text(hjust = 0))
 
+# Save plot at A4 size
 ggsave(paste0(fpath, "functional-group-freq.png"), width = 297, height = 210, units = "mm")
   
 
-# Bind historical and contemporary matrices
+# Bind historical and contemporary survey matrices
 matbind <-
   bind_rows(histdat, contdat)
 
-# Add a species richness variable
+# Remove unecessary variables to enable simple row-wise calculation of species richness
 allsppmat <- 
   matbind %>%
   select(-c(Year, nyear, ngr, fieldnum, date, Date, NGR, Fieldnum, Farm, Site))
@@ -207,13 +202,14 @@ negmat <-
   allsppmat %>%
   select_(., .dots = target_neg)
 
+# Add species richness variables to matbind
 
-matbind$rich.all <- rowSums(allsppmat > 0, na.rm = TRUE)
-matbind$rich.pos <- rowSums(posmat > 0, na.rm = TRUE)
-matbind$rich.neg <- rowSums(negmat > 0, na.rm = TRUE)
+matbind$rich.all   <- rowSums(allsppmat > 0, na.rm = TRUE)
+matbind$rich.pos   <- rowSums(posmat > 0, na.rm = TRUE)
+matbind$rich.neg   <- rowSums(negmat > 0, na.rm = TRUE)
 matbind$rich.grass <- rowSums(grassmat > 0, na.rm = TRUE)
-matbind$rich.forb <- rowSums(forbmat > 0, na.rm = TRUE)
-matbind$rich.leg <- rowSums(legmat > 0, na.rm = TRUE)
+matbind$rich.forb  <- rowSums(forbmat > 0, na.rm = TRUE)
+matbind$rich.leg   <- rowSums(legmat > 0, na.rm = TRUE)
 
 # Plot overall species richness against pos and neg
 matbind %>%
