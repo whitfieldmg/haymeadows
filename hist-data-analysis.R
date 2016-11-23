@@ -376,12 +376,12 @@ start.end.rich.tidy %>%
 # Save plot at A4 size
 ggsave(paste0(fpath, "first-last-richness-groups.png"), height = 210, width = 297, units = "mm")
 
-
-# Parse NGR grid refs into coordinates
+# Parse site grid refs into x and y coordinates
 matbind$coord <- str_sub(matbind$NGR, start = 3)
 matbind$coord_x <- sapply(str_split(matbind$coord, " "), "[", 1)
 matbind$coord_y <- sapply(str_split(matbind$coord, " "), "[", 2)
 
+# Create dataframe containing the percentage change in species richness for each site
 
 rich.pdiff <-
   matbind %>%
@@ -396,15 +396,19 @@ rich.pdiff <-
   separate(type, c("stat", "type"), "\\.") %>%
   select(-stat)
 
-
+# Extract 10km National Grid code from site name
 rich.pdiff$Region <- str_sub(rich.pdiff$Site, 1, 4)
-# This is all very messy - needs redoing
+
+# Remove duplicated sites
 rich.pdiff <- 
   matbind %>%
   group_by(Site) %>%
   filter(!duplicated(Site)) %>%
   select(Area) %>%
   right_join(., rich.pdiff, by = "Site")
+
+# Plot the percentage change in functional group richness for each site
+# as a barplot
 
 rich.pdiff %>%
   ggplot(aes(type, rich.pdiff, fill = type)) +
@@ -420,14 +424,19 @@ rich.pdiff %>%
         axis.title.y = element_blank(),
         axis.text.y = element_blank())
 
+# Save plot at A4 size
 ggsave(paste0(fpath, "func-rich-change.png"), height = 210, width = 297, units = "mm")
+
+# Plot the percentage change in overall species richness at each site,
+# as a barplot
 
 rich.pdiff %>%
   filter(type == "all") %>%
   ggplot(aes(reorder(Site, rich.pdiff), rich.pdiff, fill = rich.pdiff)) +
   geom_bar(stat = "identity") +
   scale_fill_gradient2(low = "#8e0152", mid = "white", high = "#276419") +
-  labs(title = "Change in species richness", y = "Change (%)", x = "Site", fill = "Change (%)") +
+  labs(title = "Change in species richness",
+       y = "Change (%)", x = "Site", fill = "Change (%)") +
   coord_flip() +
   # guides(fill = guide_legend(reverse = TRUE)) +
   theme_minimal() +
@@ -435,9 +444,12 @@ rich.pdiff %>%
         strip.text = element_text(hjust = 0),
         axis.title.y = element_blank())
 
+# Save plot at A4 size
 ggsave(paste0(fpath, "rich-change.png"), height = 297, width = 210, units = "mm")
 
-# Plot change in positive indicator richness
+# Plot percentage change in positive indicator species richness
+# at each site, as a barplot
+
 rich.pdiff %>%
   filter(type == "pos") %>%
   ggplot(aes(reorder(Site, rich.pdiff), rich.pdiff, fill = rich.pdiff)) +
@@ -451,9 +463,12 @@ rich.pdiff %>%
         strip.text = element_text(hjust = 0),
         axis.title.y = element_blank())
 
+# Save plot at A4 size
 ggsave(paste0(fpath, "pos-rich-change.png"), height = 297, width = 210, units = "mm")
 
-# Plot change in negative indicator richness
+# Plot percentage change in negative indicator species richness
+# at each site, as a barplot
+
 rich.pdiff %>%
   filter(type == "neg") %>%
   ggplot(aes(reorder(Site, rich.pdiff), rich.pdiff, fill = rich.pdiff)) +
@@ -467,10 +482,11 @@ rich.pdiff %>%
         strip.text = element_text(hjust = 0),
         axis.title.y = element_blank())
 
+# Save plot at A4 size
 ggsave(paste0(fpath, "neg-rich-change.png"), height = 297, width = 210, units = "mm")
 
+# Plot trends in positive and negative indicator species richness over time
 
-# Positive and negative indicator trends
 datbind %>%
   filter(nyear > 1) %>%
   group_by(Site, Year, target) %>%
@@ -489,18 +505,20 @@ datbind %>%
   theme(plot.title = element_text(hjust = 0),
         strip.text = element_text(hjust = 0))
 
+# Save plot at A4 size
 ggsave(paste0(fpath, "freq-targets.png"), width = 297, height = 210, units = "mm")
 
-# Differences in change in species richness by region
+## Statistical tests
 
-rich.pdiff %>%
-  ggplot(aes(Area, rich.pdiff, fill = Area)) +
-  geom_boxplot() +
-  facet_wrap(~ type, scales = "free_y") +
-  theme_minimal() +
-  theme(axis.text.x = element_blank())
+# Analysis of variance using Generalised Least Squares models
+# to test for differences in the overall percentage change in
+# the species richness of each functional group between areas
 
-# Some stats!!! Differences in % change in richness by area
+# GLS models are used here because they allow for the inclusion
+# of a term to account for differences in the within-group variance
+# within groups. Without this, we would be violating the assumptions
+# of parametric ANOVA, which requires the variances within groups
+# to be the same
 
 rich.pdiff.all.gls <- rich.pdiff %>%
   filter(type == "all") %>%
@@ -526,12 +544,17 @@ rich.pdiff.forb.gls <- rich.pdiff %>%
       data = .,
       weights = varIdent(form = ~ 1 | Area))
 
+# Generate ANOVA tables
 anova(rich.pdiff.all.gls)
 anova(rich.pdiff.grass.gls)
 anova(rich.pdiff.leg.gls)
 anova(rich.pdiff.forb.gls)
 
-# Map sites
+## Map sites
+
+# This code was not used to create the map included in the final report,
+# but is included here for reference. Producing maps in R removes the need
+# for stand-alone GIS programs like ArcMap.
 
 #Convert to spatial points dataframe for reprojection
 meadow_coords <- 
