@@ -265,6 +265,8 @@ matbind <-
          pdiff.rich.pos = (last(rich.pos, order_by = Year) - first(rich.pos, order_by = Year)) / first(rich.pos, order_by = Year) * 100,
          pdiff.rich.neg = (last(rich.neg, order_by = Year) - first(rich.neg, order_by = Year)) / first(rich.neg, order_by = Year))
 
+# The following operations select species richness values for the first and last
+# years at all sites and tidy them into a dataframe.
 
 rich.all.last <- 
   matbind %>%
@@ -352,11 +354,15 @@ start.end.rich %>%
   select(-what) %>%
   spread(survey, richness)
 
+# Replace type abbreviations with more meaningful full words
+
 start.end.rich.tidy$type[start.end.rich.tidy$type == "leg"] <- "legumes"
 start.end.rich.tidy$type[start.end.rich.tidy$type == "neg"] <- "negative"
 start.end.rich.tidy$type[start.end.rich.tidy$type == "pos"] <- "positive"
 
-  
+# Plot the first and last values for species richness at each site against
+# each other, for each functional group
+
 start.end.rich.tidy %>%
   ggplot(aes(first, last)) +
     geom_point() +
@@ -367,6 +373,7 @@ start.end.rich.tidy %>%
     theme(panel.border = element_rect(colour = "black", fill = NA)) +
     labs(x = "Initial richness", y = "Final richness")
 
+# Save plot at A4 size
 ggsave(paste0(fpath, "first-last-richness-groups.png"), height = 210, width = 297, units = "mm")
 
 
