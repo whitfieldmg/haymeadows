@@ -550,28 +550,62 @@ anova(rich.pdiff.grass.gls)
 anova(rich.pdiff.leg.gls)
 anova(rich.pdiff.forb.gls)
 
+# Analyses:
+# Paired t-tests: pre and post effects on frequency pos and neg indicators
+# Correlate pos indicators with overall sp richness
+# anova: effect of broad region on frequency of pos / neg indicators
+
+# Paired t-tests
+# These test for differences in species richness between the start and the end
+# for the survey period for all sites. A separate test is carried out for each
+# functional group
+
+# First the following code creates a dataframe containing a new variable
+# (prepost), which indicates whether the record is from the start or the 
+# end of the survey period for each site
+
+matbind.prepost <- 
+  matbind %>%
+  group_by(Site) %>%
+  mutate(prepost = ifelse(Year == min(Year, na.rm = TRUE), "start",
+                          ifelse(Year == max(Year, na.rm = TRUE), "end", NA))) %>%
+  mutate(prepost = as.factor(prepost)) %>%
+  filter(!is.na(prepost))
+
+# Carry out t-tests
+
+t.test(rich.all   ~ prepost, data = matbind.prepost, paired = TRUE)
+t.test(rich.grass ~ prepost, data = matbind.prepost, paired = TRUE)
+t.test(rich.forb  ~ prepost, data = matbind.prepost, paired = TRUE)
+t.test(rich.leg   ~ prepost, data = matbind.prepost, paired = TRUE)
+
+
 ## Map sites
 
 # This code was not used to create the map included in the final report,
 # but is included here for reference. Producing maps in R removes the need
 # for stand-alone GIS programs like ArcMap.
 
-#Convert to spatial points dataframe for reprojection
+# Remove duplicated rows and rows with missing data and select coordinates
+
 meadow_coords <- 
   datbind %>%
     filter(!duplicated(Site)) %>%
     filter(!is.na(easting)) %>%
     select(easting, northing, Area) 
 
-# write.table(meadow_coords, paste0(fpath, "meadow_coords.txt"))
-
 meadow_coords <- cbind(Easting = meadow_coords$easting, Northing = meadow_coords$northing)
+
+# Remove duplicated rows and rows with missing data and select site names and
+# 10km NG square codes
 
 meadow_data <-
   datbind %>%
   filter(!duplicated(Site)) %>%
   filter(!is.na(easting)) %>%
   select(Area, Site)
+
+# Join site names with percentage change in richness data
 
 meadow_data <-
   left_join(meadow_data,
@@ -580,22 +614,39 @@ meadow_data <-
   
 meadow_data <- as.data.frame(meadow_data)
 
+# Convert meadow_data dataframe into a SpatialPointsDataFrame
+# This allows us to specify the spatial reference system in use
+# (OS National Grid) and reproject it into WGS84 for plotting
+# with ggmap
+
 meadow_sp <- SpatialPointsDataFrame(meadow_coords,
                                     data = meadow_data,
                                     proj4string = CRS("+init=epsg:27700"))
 
+# Reproject OS NG coordinates into WGS84 (long / lat)
 meadow_latlong <- spTransform(meadow_sp, CRS("+init=epsg:4326"))
-meadow_fort <- fortify(meadow_latlong)
+
+# Convert SpatialPointsDataFrame back into a dataframe for plotting
+# with ggmap
 
 meadow_latlong_df <- as.data.frame(meadow_latlong)
 
-meadow_latlong_df %>%
-  ggplot(aes(Easting, Northing)) +
-  geom_point()
+# Create bounding boxes that describe three inset regions that
+# will be drawn on separate maps, and set up maps using get_map
+
+# get_map fetches map tiles from Google Maps for the specified region,
+# so an internet connection is required for these steps.
 
 bbox1 <- make_bbox(lon = c(-3.5, -2.9), lat = c(54.35, 54.7), f = 0.1)
-
 meadmap1 <- get_map(bbox1, maptype = "roadmap")
+
+bbox2 <- make_bbox(lon = c(-2.9, -2.0), lat = c(54.35, 54.7), f = 0.1)
+meadmap2 <- get_map(bbox2, maptype = "roadmap")
+
+bbox3 <- make_bbox(lon = c(-3.2, -2.3), lat = c(54.2, 54.5), f = 0.1)
+meadmap3 <- get_map(bbox3, maptype = "roadmap")
+
+# Draw each map and save as 15cm square images
 
 ggmap(meadmap1) +
   geom_point(data = meadow_latlong_df %>% filter(!is.na(rich.pdiff)),
@@ -607,10 +658,6 @@ ggmap(meadmap1) +
 
 ggsave(paste0(fpath, "meadmap1.png"), width = 15, height = 15, units = "cm")
 
-bbox2 <- make_bbox(lon = c(-2.9, -2.0), lat = c(54.35, 54.7), f = 0.1)
-
-meadmap2 <- get_map(bbox2, maptype = "roadmap")
-
 ggmap(meadmap2) +
   geom_point(data = meadow_latlong_df %>% filter(!is.na(rich.pdiff)),
              aes(Easting, Northing, fill = Site),
@@ -620,10 +667,6 @@ ggmap(meadmap2) +
   theme(legend.position = "none")
 
 ggsave(paste0(fpath, "meadmap2.png"), width = 15, height = 15, units = "cm")
-
-bbox3 <- make_bbox(lon = c(-3.2, -2.3), lat = c(54.2, 54.5), f = 0.1)
-
-meadmap3 <- get_map(bbox3, maptype = "roadmap")
 
 ggmap(meadmap3) +
   geom_point(data = meadow_latlong_df %>% filter(!is.na(rich.pdiff)),
@@ -635,123 +678,3 @@ ggmap(meadmap3) +
 
 ggsave(paste0(fpath, "meadmap3.png"), width = 15, height = 15, units = "cm")
 
-# ggsn will add a north arrow and scale bar but need to update R first
-
-# Analyses:
-# Paired t-tests: pre and post effects on frequency pos and neg indicators
-# Correlate pos indicators with overall sp richness
-# anova: effect of broad region on frequency of pos / neg indicators
-
-# Paired t-test
-
-matbind.prepost <- 
-matbind %>%
-  group_by(Site) %>%
-  mutate(prepost = ifelse(Year == min(Year, na.rm = TRUE), "start", ifelse(Year == max(Year, na.rm = TRUE), "end", NA))) %>%
-  mutate(prepost = as.factor(prepost)) %>%
-  filter(!is.na(prepost))
-
-glimpse(matbind.prepost)
-
-t.test(rich.all ~ prepost, data = matbind.prepost, paired = TRUE)
-t.test(rich.grass ~ prepost, data = matbind.prepost, paired = TRUE)
-t.test(rich.forb ~ prepost, data = matbind.prepost, paired = TRUE)
-t.test(rich.leg ~ prepost, data = matbind.prepost, paired = TRUE)
-
-# # Do a quick PCA on the richness and frequency data
-# # (for selected years)
-# 
-# # Which years have the most survey sites?
-# 
-# matbind %>%
-#   count(Year)
-# 
-# matbind <-
-#   matbind %>%
-#   separate(Site, c("grid", "Sitename"), "-", remove = FALSE)
-# 
-# matbind$grid <- as.factor(matbind$grid)
-# 
-# gridlv <- levels(matbind$grid)
-# gridlv
-# 
-# # Custom colour palette taken from http://stackoverflow.com/questions/9563711/r-color-palettes-for-many-data-classes#comment49070918_9568659
-# colvec <- c("dodgerblue2", "#E31A1C", "green4", "#6A3D9A", "#FF7F00", "black", "gold1", "skyblue2", "palegreen2", "#FDBF6F", "gray70", "maroon", "orchid1", "darkturquoise", "darkorange4", "brown")
-# 
-# 
-# # 2012 is the first big year for survey data
-# 
-# spp12 <- allsppmat[matbind$Year == 2012, ]
-# spp12[is.na(spp12)] <- 0
-# 
-# spp11 <- allsppmat[matbind$Year == 2011, ]
-# spp11[is.na(spp11)] <- 0
-# 
-# spp12 <- allsppmat[matbind$Year == 2012, ]
-# spp12[is.na(spp12)] <- 0
-# 
-# spp13 <- allsppmat[matbind$Year == 2013, ]
-# spp13[is.na(spp13)] <- 0
-# 
-# spp14 <- allsppmat[matbind$Year == 2014, ]
-# spp14[is.na(spp14)] <- 0
-# 
-# spp15 <- allsppmat[matbind$Year == 2015, ]
-# spp15[is.na(spp15)] <- 0
-# 
-# 
-# 
-# rich10.pca <- rda(spp10, scale = TRUE)
-# plot(rich10.pca, type = "n", scaling = 3)
-# with(matbind[matbind$Year == 2010, ],
-#      points(rich10.pca, display = "sites", col = colvec[grid], scaling = 3, pch = 19))
-# # with(matbind[matbind$Year == 2010, ],
-# #      text(rich10.pca, display = "species", scaling = 3, cex = 0.8, col = "darkcyan"))
-# with(matbind[matbind$Year == 2010, ],
-#      legend("topright", legend = gridlv, bty = "n", col = colvec, pch = 19))
-# 
-# 
-# rich11.pca <- rda(spp11, scale = TRUE)
-# plot(rich11.pca, type = "n", scaling = 3)
-# with(matbind[matbind$Year == 2011, ],
-#      points(rich11.pca, display = "sites", col = colvec[grid], scaling = 3, pch = 19))
-# # with(matbind[matbind$Year == 2011, ],
-# #      text(rich11.pca, display = "species", scaling = 3, cex = 0.8, col = "darkcyan"))
-# with(matbind[matbind$Year == 2011, ],
-#      legend("topright", legend = gridlv, bty = "n", col = colvec, pch = 19))
-# 
-# rich12.pca <- rda(spp12, scale = TRUE)
-# plot(rich12.pca, type = "n", scaling = 3)
-# with(matbind[matbind$Year == 2012, ],
-#      points(rich12.pca, display = "sites", col = colvec[grid], scaling = 3, pch = 19))
-# # with(matbind[matbind$Year == 2012, ],
-# #      text(rich12.pca, display = "species", scaling = 3, cex = 0.8, col = "darkcyan"))
-# with(matbind[matbind$Year == 2012, ],
-#      legend("topright", legend = gridlv, bty = "n", col = colvec, pch = 19))
-# 
-# rich13.pca <- rda(spp13, scale = TRUE)
-# plot(rich13.pca, type = "n", scaling = 3)
-# with(matbind[matbind$Year == 2013, ],
-#      points(rich13.pca, display = "sites", col = colvec[grid], scaling = 3, pch = 19))
-# # with(matbind[matbind$Year == 2013, ],
-# #      text(rich13.pca, display = "species", scaling = 3, cex = 0.8, col = "darkcyan"))
-# with(matbind[matbind$Year == 2013, ],
-#      legend("topright", legend = gridlv, bty = "n", col = colvec, pch = 19))
-# 
-# rich14.pca <- rda(spp14, scale = TRUE)
-# plot(rich14.pca, type = "n", scaling = 3)
-# with(matbind[matbind$Year == 2014, ],
-#      points(rich14.pca, display = "sites", col = colvec[grid], scaling = 3, pch = 19))
-# # with(matbind[matbind$Year == 2014, ],
-# #      text(rich14.pca, display = "species", scaling = 3, cex = 0.8, col = "darkcyan"))
-# with(matbind[matbind$Year == 2014, ],
-#      legend("topright", legend = gridlv, bty = "n", col = colvec, pch = 19))
-# 
-# rich15.pca <- rda(spp15, scale = TRUE)
-# plot(rich15.pca, type = "n", scaling = 3)
-# with(matbind[matbind$Year == 2015, ],
-#      points(rich15.pca, display = "sites", col = colvec[grid], scaling = 3, pch = 19))
-# # with(matbind[matbind$Year == 2015, ],
-# #      text(rich15.pca, display = "species", scaling = 3, cex = 0.8, col = "darkcyan"))
-# with(matbind[matbind$Year == 2015, ],
-#      legend("topright", legend = gridlv, bty = "n", col = colvec, pch = 19))
